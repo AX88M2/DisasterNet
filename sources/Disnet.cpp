@@ -11,13 +11,21 @@ ENetPeer* peer;
 ENetEvent event;
 
 double disnet_init() {
+#ifdef _DEBUG
+#ifdef WIN32
+    AllocConsole();
+    AttachConsole(GetCurrentProcessId());
+#endif
+    freopen("CON", "w", stdout);
+#endif
+
     if (enet_initialize())
         return 0;
 
     host = enet_host_create(nullptr, 1, 2, 5000000, 5000000);
-
-    OutputDebugStringA("enet_initialize() succeeded\n");
-
+#ifdef _DEBUG
+    printf("enet_initialize() succeeded\n");
+#endif
     if ( !host )
         return 0;
 
@@ -29,13 +37,17 @@ void disnet_uninit() {
     if (peer)
     {
         enet_peer_disconnect_now(peer, 0);
-        OutputDebugStringA("enet_peer_disconnect_now() succeeded\n");
+#ifdef _DEBUG
+        printf("enet_peer_disconnect_now() succeeded\n");
+#endif
         peer = nullptr;
     }
     if (host)
     {
         enet_host_destroy(host);
-        OutputDebugStringA("enet_host_destroy() succeeded\n");
+#ifdef _DEBUG
+        printf("enet_host_destroy() succeeded\n");
+#endif
         peer = nullptr;
     }
     enet_deinitialize();
@@ -83,5 +95,4 @@ void disnet_reset() {
 void disnet_send(char *data, double length, double reliable) {
     ENetPacket *packet = enet_packet_create(data, (unsigned int)length, reliable != 0.0);
     enet_peer_send(peer, reliable == 0.0, packet);
-    printf("data: %p | size: %f %i", data, length, reliable != 0.0);
 }
