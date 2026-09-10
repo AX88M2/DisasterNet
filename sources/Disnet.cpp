@@ -1,4 +1,4 @@
-#include "enet.h"
+#include <enet/enet.h>
 #include "Disnet.hpp"
 
 #include "windows.h"
