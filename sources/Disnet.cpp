@@ -1,15 +1,12 @@
 #include "enet.h"
-#include "yysdk/YYGML.h"
 #include "Disnet.hpp"
 
 #include "windows.h"
 
 #include <cstdio>
 #include <format>
-#include <iostream>
-#include <ostream>
 
-ENetHost* client;
+ENetHost* host;
 ENetPeer* peer;
 ENetEvent event;
 
@@ -17,11 +14,11 @@ double disnet_init() {
     if (enet_initialize())
         return 0;
 
-    client = enet_host_create(nullptr, 1, 2, 5000000, 5000000);
+    host = enet_host_create(nullptr, 1, 2, 5000000, 5000000);
 
     OutputDebugStringA("enet_initialize() succeeded\n");
 
-    if ( !client )
+    if ( !host )
         return 0;
 
     atexit(disnet_uninit);
@@ -35,9 +32,9 @@ void disnet_uninit() {
         OutputDebugStringA("enet_peer_disconnect_now() succeeded\n");
         peer = nullptr;
     }
-    if (client)
+    if (host)
     {
-        enet_host_destroy(client);
+        enet_host_destroy(host);
         OutputDebugStringA("enet_host_destroy() succeeded\n");
         peer = nullptr;
     }
@@ -46,29 +43,29 @@ void disnet_uninit() {
 
 double disnet_connect(const char *ip, double port) {
     ENetAddress address;
-    address.port = static_cast<uint16_t>(port);
+    address.port = (int)(port);
 
     if ( enet_address_set_host_ip(&address, ip) < 0 && enet_address_set_host(&address, ip) < 0 )
         return 0.0;
 
-    peer = enet_host_connect(client, &address, 2u, 0);
+    peer = enet_host_connect(host, &address, 2u, 0);
 
-    return peer != nullptr;
+    return (double)(peer != nullptr);
 }
 
-double disnet_poll(YYRValue *data) {
-    if (enet_host_service(client, &event, 0) > 0) {
+double disnet_poll(char *buffer) {
+    if (enet_host_service(host, &event, 0) > 0) {
         if (event.type == ENET_EVENT_TYPE_CONNECT) {
             return 1.0;
         }
 
         if (event.type == ENET_EVENT_TYPE_DISCONNECT) {
-            //*data = event.data;
+            memcpy(buffer, &event.data, sizeof(event.data));
             return 2.0;
         }
 
         if (event.type == ENET_EVENT_TYPE_RECEIVE) {
-            memcpy(data->ptr, event.packet->data, event.packet->dataLength);
+            memcpy(buffer, event.packet->data, event.packet->dataLength);
             enet_packet_destroy(event.packet);
             return ((event.packet->flags & 1) == 0) + 3;
         }
@@ -83,15 +80,8 @@ void disnet_reset() {
     }
 }
 
-void disnet_send(const void *data, double size, double reliable) {
-    size_t packet_size = 0;
-    if ( size >= 9.223372036854776e18 )
-    {
-        size = size - 9.223372036854776e18;
-        if ( size < 9.223372036854776e18 )
-            packet_size = 0x8000000000000000uLL;
-    }
-    ENetPacket *packet = enet_packet_create(data, packet_size + size, reliable != 0.0);
+void disnet_send(char *data, double length, double reliable) {
+    ENetPacket *packet = enet_packet_create(data, (unsigned int)length, reliable != 0.0);
     enet_peer_send(peer, reliable == 0.0, packet);
-    printf("data: %p | size: %f %i", data, size, reliable != 0.0);
+    printf("data: %p | size: %f %i", data, length, reliable != 0.0);
 }
